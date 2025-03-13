@@ -1,8 +1,15 @@
 from rest_framework import serializers
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from .models import User
 from django.contrib.auth import authenticate
 import random
 from datetime import date
+from django.utils.html import strip_tags
 
 SUPERHERO_NAMES = [
     "IronMan", "SpiderMan", "CaptainAmerica", "Thor", "Hulk", "BlackPanther",
@@ -55,4 +62,37 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             user.set_password(password) 
         user.save()
         return user
+
+#password reset
+User = get_user_model()
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        try:
+            user = User.objects.get(email=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No user is associated with this email address.")
+        return value
+
+    def save(self):
+        email = self.validated_data['email']
+        user = User.objects.get(email=email)
+        token_generator = PasswordResetTokenGenerator()
+        token = token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        # Construct the reset URL
+        reset_url = f"http://localhost:8000/api/users/reset/{uid}/{token}/"
+
+        # Send email
+        send_mail(
+            subject="Password Reset Request",
+            message=strip_tags(render_to_string("password_reset_email.html")),
+            from_email="sharran1594@gmail.com",
+            recipient_list=[email],
+            html_message=render_to_string("password_reset_email.html", {"reset_url": reset_url}),
+            fail_silently=False,
+        )
 

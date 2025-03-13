@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os 
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     "chat",
     "users",
     "djoser",
+    "django_ratelimit",
 ]
 
 MIDDLEWARE = [
@@ -58,6 +60,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # "ipware.middleware.IPWareMiddleware",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -108,6 +111,14 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+PASSWORD_RESET_TIMEOUT = 900
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",  # Adjust the location as needed
+    }
+}
 
 
 WSGI_APPLICATION = "anonchat.wsgi.application"
