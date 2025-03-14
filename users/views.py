@@ -30,6 +30,45 @@ import random
 
 
 
+# otp_storage = {}
+
+# class RegisterView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def post(self, request):
+#         data = request.data
+#         email = data.get("email")
+
+#         if "otp" not in data:
+#             otp = str(randint(100000, 999999))
+#             otp_storage[email] = otp 
+
+#             send_mail(
+#                 subject="Your OTP for Registration",
+#                 message=f"Your OTP for registration is: {otp}",
+#                 from_email=settings.EMAIL_HOST_USER,
+#                 recipient_list=[email],
+#                 fail_silently=False,
+#             )
+#             return Response({"message": "OTP sent to your email"}, status=status.HTTP_200_OK)
+
+#         elif "otp" in data:
+#             if email in otp_storage and otp_storage[email] == data["otp"]:
+#                 serializer = UserRegistrationSerializer(data=data)
+#                 if serializer.is_valid():
+#                     user = User.objects.create_user(
+#                         email=data['email'],
+#                         password=data['password'],
+#                         gender=data['gender'],
+#                         preferences=data['preferences'],
+#                         dob=data['dob']
+#                     )
+#                     otp_storage.pop(email, None)
+#                     return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+#                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#             return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response({"error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+
 otp_storage = {}
 
 class RegisterView(APIView):
@@ -38,11 +77,20 @@ class RegisterView(APIView):
     def post(self, request):
         data = request.data
         email = data.get("email")
+        otp = data.get("otp")
 
-        if "otp" not in data:
+        # Step 1: Check if OTP is provided
+        if not otp:
+            # Use the serializer to validate the data before sending OTP
+            serializer = UserRegistrationSerializer(data=data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            # Generate OTP and store it
             otp = str(randint(100000, 999999))
-            otp_storage[email] = otp 
+            otp_storage[email] = otp
 
+            # Send OTP to the email
             send_mail(
                 subject="Your OTP for Registration",
                 message=f"Your OTP for registration is: {otp}",
@@ -52,22 +100,18 @@ class RegisterView(APIView):
             )
             return Response({"message": "OTP sent to your email"}, status=status.HTTP_200_OK)
 
-        elif "otp" in data:
-            if email in otp_storage and otp_storage[email] == data["otp"]:
-                serializer = UserRegistrationSerializer(data=data)
-                if serializer.is_valid():
-                    user = User.objects.create_user(
-                        email=data['email'],
-                        password=data['password'],
-                        gender=data['gender'],
-                        preferences=data['preferences'],
-                        dob=data['dob']
-                    )
-                    otp_storage.pop(email, None)
-                    return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+        # Step 2: Verify OTP and register the user
+        if email in otp_storage and otp_storage[email] == otp:
+            serializer = UserRegistrationSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                # Remove OTP after successful registration
+                otp_storage.pop(email, None)
+                return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
     
 class LoginView(APIView):
     permission_classes = [AllowAny]
